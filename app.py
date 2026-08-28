@@ -1,19 +1,3 @@
-"""
-TraFlow AI
-Corridor-Level Traffic Intelligence & Adaptive Signal Simulation
-
-Dashboard:
-1. Traffic video input
-2. Video activity analysis
-3. Current corridor state
-4. Corridor flow
-5. Propagation intelligence
-6. LSTM forecast from final_result.json
-7. Four-way junction simulation
-8. Adaptive signal decision
-9. Before/after corridor impact
-"""
-
 from pathlib import Path
 import json
 import tempfile
@@ -26,13 +10,16 @@ import streamlit as st
 
 
 # ============================================================
-# PAGE CONFIG
+# TRAFLOW AI
+# Corridor-Level Traffic Intelligence
+# & Adaptive Signal Simulation
 # ============================================================
 
 st.set_page_config(
     page_title="TraFlow AI",
     page_icon="🚦",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -42,7 +29,7 @@ st.set_page_config(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-FINAL_RESULT_PATH = (
+FINAL_RESULT_FILE = (
     BASE_DIR
     / "scripts"
     / "artifacts"
@@ -50,7 +37,7 @@ FINAL_RESULT_PATH = (
     / "final_result.json"
 )
 
-PROPAGATION_PATH = (
+PROPAGATION_FILE = (
     BASE_DIR
     / "scripts"
     / "artifacts"
@@ -60,7 +47,7 @@ PROPAGATION_PATH = (
 
 
 # ============================================================
-# CONSTANTS
+# CONFIGURATION
 # ============================================================
 
 DIRECTIONS = [
@@ -77,98 +64,562 @@ CAMERAS = {
     "West": 2704,
 }
 
-STATE_NAMES = {
-    0: "Very Light",
-    1: "Light",
-    2: "Moderate",
-    3: "Severe",
-}
+STATE_NAMES = [
+    "Very Light",
+    "Light",
+    "Moderate",
+    "Heavy",
+]
 
-STATE_EMOJI = {
-    "Very Light": "🟢",
-    "Light": "🟡",
-    "Moderate": "🟠",
-    "Severe": "🔴",
-}
-
-
-# ============================================================
-# DEFAULT SCENARIO
-# ============================================================
-
-DEFAULT_TRAFFIC = {
-    "North": 65,
-    "East": 12,
-    "South": 15,
-    "West": 10,
-}
-
-DEFAULT_QUEUES = {
-    "North": 96,
-    "East": 0,
-    "South": 40,
-    "West": 9,
-}
-
-DEFAULT_GROWTH = {
-    "North": 3,
-    "East": 0,
-    "South": 1,
-    "West": 1,
-}
+STATE_ICONS = [
+    "🟢",
+    "🟡",
+    "🟠",
+    "🔴",
+]
 
 
 # ============================================================
-# CSS
-#
-# CSS is kept separate from the actual UI.
-# No HTML is used for camera cards or metrics.
+# GLOBAL CSS
 # ============================================================
 
 st.markdown(
     """
 <style>
 
-.main-title {
-    font-size: 3rem;
-    font-weight: 900;
-    margin-bottom: 0.2rem;
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+html,
+body,
+[class*="css"] {
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
 }
 
-.subtitle {
-    font-size: 1.15rem;
-    opacity: 0.75;
-    margin-bottom: 1rem;
+.stApp {
+    background: #f8fafc;
 }
 
-.small-muted {
-    opacity: 0.65;
-    font-size: 0.85rem;
+.block-container {
+    max-width: 1450px;
+    padding-top: 2rem;
+    padding-bottom: 4rem;
 }
 
-.signal-box {
-    text-align: center;
-    padding: 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(128,128,128,0.35);
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.hero {
+    background:
+        linear-gradient(
+            135deg,
+            #0f172a 0%,
+            #1e293b 100%
+        );
+
+    border-radius: 24px;
+
+    padding: 38px 42px;
+
+    margin-bottom: 32px;
+
+    color: white;
+
+    border:
+        1px solid
+        #334155;
+
+    box-shadow:
+        0 12px 35px
+        rgba(15, 23, 42, 0.15);
 }
 
-.junction-road {
-    background: #3b4252;
-    border-radius: 20px;
-    padding: 25px;
-    text-align: center;
-}
-
-.big-signal {
-    font-size: 3rem;
+.hero-title {
+    font-size: 48px !important;
+    font-weight: 900 !important;
     line-height: 1.1;
+    color: white !important;
 }
 
-.decision-box {
-    padding: 20px;
+.hero-subtitle {
+    font-size: 23px !important;
+    font-weight: 600 !important;
+    line-height: 1.5;
+
+    margin-top: 12px;
+
+    color: #e2e8f0 !important;
+}
+
+.status-pill {
+    display: inline-block;
+
+    margin-top: 22px;
+
+    padding:
+        10px
+        18px;
+
+    border-radius: 999px;
+
+    background:
+        rgba(34, 197, 94, 0.15);
+
+    border:
+        1px solid
+        rgba(74, 222, 128, 0.4);
+
+    color:
+        #4ade80 !important;
+
+    font-size: 15px !important;
+
+    font-weight: 800 !important;
+
+    letter-spacing: 0.4px;
+}
+
+
+/* =========================================================
+   SECTION TITLES
+========================================================= */
+
+.section-title {
+    font-size: 30px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #0f172a !important;
+
+    margin-top: 36px;
+
+    margin-bottom: 18px;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.card {
+    background: #ffffff;
+
+    border:
+        1px solid
+        #cbd5e1;
+
     border-radius: 18px;
-    border: 1px solid rgba(128,128,128,0.35);
+
+    padding: 23px;
+
+    margin-bottom: 15px;
+
+    box-shadow:
+        0 5px 16px
+        rgba(15, 23, 42, 0.05);
+}
+
+.camera-title {
+    font-size: 15px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #334155 !important;
+
+    letter-spacing: 1px;
+}
+
+.camera-state {
+    font-size: 25px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #0f172a !important;
+
+    margin-top: 11px;
+
+    line-height: 1.25;
+}
+
+.camera-meta {
+    font-size: 15px !important;
+
+    font-weight: 650 !important;
+
+    color:
+        #475569 !important;
+
+    margin-top: 9px;
+
+    line-height: 1.45;
+}
+
+
+/* =========================================================
+   METRICS
+========================================================= */
+
+[data-testid="stMetricLabel"] {
+    font-size: 15px !important;
+
+    font-weight: 800 !important;
+
+    color:
+        #334155 !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 30px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #0f172a !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-size: 14px !important;
+
+    font-weight: 700 !important;
+}
+
+
+/* =========================================================
+   BIG NUMBERS
+========================================================= */
+
+.big-number {
+    font-size: 34px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #0f172a !important;
+}
+
+
+/* =========================================================
+   FLOW
+========================================================= */
+
+.flow-box {
+    text-align: center;
+
+    padding: 23px;
+
+    background: white;
+
+    border:
+        1px solid
+        #cbd5e1;
+
+    border-radius: 17px;
+
+    box-shadow:
+        0 4px 14px
+        rgba(15, 23, 42, 0.05);
+}
+
+.flow-camera {
+    font-size: 30px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #0f172a !important;
+}
+
+.flow-arrow {
+    font-size: 34px !important;
+
+    font-weight: 900 !important;
+
+    color:
+        #475569 !important;
+
+    text-align: center;
+
+    padding-top: 18px;
+}
+
+
+/* =========================================================
+   NORMAL TEXT
+========================================================= */
+
+p {
+    font-size: 16px;
+
+    line-height: 1.6;
+
+    color:
+        #1e293b;
+}
+
+.stMarkdown {
+    font-size: 16px;
+}
+
+
+/* =========================================================
+   HEADINGS
+========================================================= */
+
+h1 {
+    font-size: 38px !important;
+
+    font-weight: 900 !important;
+}
+
+h2 {
+    font-size: 30px !important;
+
+    font-weight: 900 !important;
+}
+
+h3 {
+    font-size: 23px !important;
+
+    font-weight: 850 !important;
+}
+
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+label {
+    font-size: 16px !important;
+
+    font-weight: 800 !important;
+
+    color:
+        #0f172a !important;
+}
+
+[data-baseweb="select"] {
+    font-size: 16px !important;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+button {
+    font-size: 16px !important;
+
+    font-weight: 800 !important;
+}
+
+
+/* =========================================================
+   DATAFRAME
+========================================================= */
+
+[data-testid="stDataFrame"] {
+    font-size: 15px !important;
+}
+
+
+/* =========================================================
+   ALERTS
+========================================================= */
+
+[data-testid="stAlert"] {
+    font-size: 16px !important;
+
+    font-weight: 650 !important;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   CAPTIONS
+========================================================= */
+
+[data-testid="stCaptionContainer"] {
+    font-size: 14px !important;
+
+    font-weight: 600 !important;
+
+    color:
+        #475569 !important;
+}
+
+
+/* =========================================================
+   JUNCTION
+========================================================= */
+
+.junction {
+    background:
+        #334155;
+
+    border-radius:
+        24px;
+
+    padding:
+        25px;
+
+    min-height:
+        430px;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    justify-content:
+        center;
+
+    align-items:
+        center;
+
+    position:
+        relative;
+}
+
+.road-horizontal {
+    position:
+        absolute;
+
+    left:
+        0;
+
+    right:
+        0;
+
+    top:
+        40%;
+
+    height:
+        110px;
+
+    background:
+        #475569;
+}
+
+.road-vertical {
+    position:
+        absolute;
+
+    top:
+        0;
+
+    bottom:
+        0;
+
+    left:
+        40%;
+
+    width:
+        110px;
+
+    background:
+        #475569;
+}
+
+.junction-center {
+    position:
+        relative;
+
+    z-index:
+        3;
+
+    width:
+        150px;
+
+    height:
+        150px;
+
+    border-radius:
+        50%;
+
+    background:
+        #0f172a;
+
+    border:
+        5px solid
+        #94a3b8;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    text-align:
+        center;
+
+    color:
+        white;
+
+    font-weight:
+        900;
+}
+
+.junction-label {
+    position:
+        relative;
+
+    z-index:
+        5;
+
+    padding:
+        10px 18px;
+
+    border-radius:
+        12px;
+
+    background:
+        white;
+
+    font-weight:
+        900;
+
+    font-size:
+        17px;
+}
+
+.signal-green {
+    color:
+        #16a34a !important;
+}
+
+.signal-red {
+    color:
+        #dc2626 !important;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.footer {
+    font-size:
+        15px !important;
+
+    font-weight:
+        700 !important;
+
+    color:
+        #334155 !important;
 }
 
 </style>
@@ -178,61 +629,108 @@ st.markdown(
 
 
 # ============================================================
-# FUNCTIONS
+# UTILITY FUNCTIONS
 # ============================================================
 
-def load_final_result():
-
-    if not FINAL_RESULT_PATH.exists():
-        return {}
-
-    try:
-        with open(
-            FINAL_RESULT_PATH,
-            "r",
-            encoding="utf-8",
-        ) as f:
-            return json.load(f)
-
-    except Exception:
-        return {}
+def clamp(value, low, high):
+    return max(low, min(high, value))
 
 
-def load_propagation():
+def state_from_queue(queue):
+    if queue < 15:
+        return 0
 
-    if not PROPAGATION_PATH.exists():
-        return pd.DataFrame()
+    if queue < 40:
+        return 1
 
-    try:
-        return pd.read_csv(
-            PROPAGATION_PATH
+    if queue < 75:
+        return 2
+
+    return 3
+
+
+def state_display(state):
+    state = int(
+        clamp(
+            state,
+            0,
+            3,
         )
+    )
 
-    except Exception:
-        return pd.DataFrame()
+    return (
+        f"{STATE_ICONS[state]} "
+        f"{STATE_NAMES[state]}"
+    )
+
+
+def risk_level(risk):
+    if risk < 30:
+        return "MINIMAL"
+
+    if risk < 50:
+        return "LOW"
+
+    if risk < 75:
+        return "MODERATE"
+
+    return "HIGH"
 
 
 def safe_float(value, default=0.0):
-
     try:
         return float(value)
     except Exception:
         return default
 
 
-def state_from_activity(activity):
+# ============================================================
+# LOAD MODEL RESULT
+# ============================================================
 
-    if activity < 20:
-        return 0
+def load_final_result():
 
-    if activity < 40:
-        return 1
+    if not FINAL_RESULT_FILE.exists():
+        return {}
 
-    if activity < 65:
-        return 2
+    try:
 
-    return 3
+        with open(
+            FINAL_RESULT_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
 
+            return json.load(file)
+
+    except Exception:
+
+        return {}
+
+
+# ============================================================
+# LOAD PROPAGATION DATA
+# ============================================================
+
+def load_propagation_events():
+
+    if not PROPAGATION_FILE.exists():
+        return pd.DataFrame()
+
+    try:
+
+        return pd.read_csv(
+            PROPAGATION_FILE
+        )
+
+    except Exception:
+
+        return pd.DataFrame()
+
+
+# ============================================================
+# VIDEO ANALYSIS
+# ============================================================
 
 def analyze_video(video_path):
 
@@ -249,207 +747,675 @@ def analyze_video(video_path):
         )
     )
 
+    fps = safe_float(
+        cap.get(
+            cv2.CAP_PROP_FPS
+        ),
+        25.0,
+    )
+
     if total_frames <= 0:
-        cap.release()
-        return None
+        total_frames = 1
 
-    sample_count = min(
-        total_frames,
-        180
-    )
+    # Analyze approximately 120 frames.
+    sample_count = 120
 
-    step = max(
+    frame_step = max(
         1,
-        total_frames // sample_count
+        total_frames // sample_count,
     )
 
-    previous = None
-    activities = []
+    subtractor = (
+        cv2.createBackgroundSubtractorMOG2(
+            history=300,
+            varThreshold=40,
+            detectShadows=False,
+        )
+    )
 
-    frame_number = 0
+    object_counts = []
+
+    activity_values = []
+
+    # Keep movement distribution information.
+    region_counts = {
+        "North": [],
+        "East": [],
+        "South": [],
+        "West": [],
+    }
+
+    frame_index = 0
 
     while True:
 
-        ok, frame = cap.read()
+        success, frame = cap.read()
 
-        if not ok:
+        if not success:
             break
 
-        if frame_number % step != 0:
+        if frame_index % frame_step != 0:
 
-            frame_number += 1
+            frame_index += 1
+
             continue
 
         frame = cv2.resize(
             frame,
-            (640, 360)
+            (
+                640,
+                360,
+            ),
         )
 
         gray = cv2.cvtColor(
             frame,
-            cv2.COLOR_BGR2GRAY
+            cv2.COLOR_BGR2GRAY,
         )
 
-        gray = cv2.GaussianBlur(
-            gray,
+        mask = subtractor.apply(
+            gray
+        )
+
+        mask = cv2.GaussianBlur(
+            mask,
             (5, 5),
-            0
+            0,
         )
 
-        if previous is not None:
+        _, mask = cv2.threshold(
+            mask,
+            180,
+            255,
+            cv2.THRESH_BINARY,
+        )
 
-            difference = cv2.absdiff(
-                previous,
-                gray
+        kernel = np.ones(
+            (3, 3),
+            np.uint8,
+        )
+
+        mask = cv2.morphologyEx(
+            mask,
+            cv2.MORPH_OPEN,
+            kernel,
+        )
+
+        mask = cv2.morphologyEx(
+            mask,
+            cv2.MORPH_CLOSE,
+            kernel,
+        )
+
+        contours, _ = cv2.findContours(
+            mask,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+
+        objects = 0
+
+        frame_regions = {
+            "North": 0,
+            "East": 0,
+            "South": 0,
+            "West": 0,
+        }
+
+        for contour in contours:
+
+            x, y, w, h = cv2.boundingRect(
+                contour
             )
 
-            _, threshold = cv2.threshold(
-                difference,
-                25,
-                255,
-                cv2.THRESH_BINARY
+            area = w * h
+
+            if (
+                area >= 600
+                and w >= 20
+                and h >= 15
+            ):
+
+                objects += 1
+
+                center_x = x + w / 2
+                center_y = y + h / 2
+
+                # ------------------------------------------------
+                # Prototype directional zones.
+                #
+                # This is based on where detected activity
+                # appears in the camera frame.
+                # ------------------------------------------------
+
+                if (
+                    center_y < 120
+                    and center_x > 180
+                    and center_x < 460
+                ):
+
+                    frame_regions[
+                        "North"
+                    ] += 1
+
+                elif (
+                    center_x > 430
+                    and center_y > 90
+                    and center_y < 270
+                ):
+
+                    frame_regions[
+                        "East"
+                    ] += 1
+
+                elif (
+                    center_y > 240
+                    and center_x > 180
+                    and center_x < 460
+                ):
+
+                    frame_regions[
+                        "South"
+                    ] += 1
+
+                elif (
+                    center_x < 210
+                    and center_y > 90
+                    and center_y < 270
+                ):
+
+                    frame_regions[
+                        "West"
+                    ] += 1
+
+                else:
+
+                    # If an object is near the centre,
+                    # assign it to the least active region.
+                    least_region = min(
+                        frame_regions,
+                        key=frame_regions.get,
+                    )
+
+                    frame_regions[
+                        least_region
+                    ] += 1
+
+        activity = (
+            np.count_nonzero(mask)
+            / mask.size
+            * 100
+        )
+
+        object_counts.append(
+            objects
+        )
+
+        activity_values.append(
+            activity
+        )
+
+        for direction in DIRECTIONS:
+
+            region_counts[
+                direction
+            ].append(
+                frame_regions[
+                    direction
+                ]
             )
 
-            activity = (
-                np.count_nonzero(
-                    threshold
-                )
-                /
-                threshold.size
-            ) * 100
+        frame_index += 1
 
-            activities.append(
-                activity
-            )
-
-        previous = gray
-        frame_number += 1
-
-        if len(activities) >= 180:
+        if len(object_counts) >= sample_count:
             break
 
     cap.release()
 
-    if not activities:
+    if not object_counts:
         return None
 
-    values = np.array(
-        activities,
-        dtype=float
+    object_counts = np.array(
+        object_counts,
+        dtype=float,
     )
 
-    average = float(
-        np.mean(values)
+    activity_values = np.array(
+        activity_values,
+        dtype=float,
     )
 
-    peak = float(
-        np.percentile(
-            values,
-            95
-        )
-    )
-
-    third = max(
-        1,
-        len(values) // 3
-    )
-
-    beginning = float(
+    average_objects = float(
         np.mean(
-            values[:third]
+            object_counts
         )
     )
 
-    ending = float(
+    peak_objects = int(
+        np.max(
+            object_counts
+        )
+    )
+
+    average_activity = float(
         np.mean(
-            values[-third:]
+            activity_values
         )
     )
 
-    difference = ending - beginning
+    # ========================================================
+    # TREND
+    # ========================================================
 
-    if difference > 2:
+    n = len(
+        object_counts
+    )
+
+    window = max(
+        3,
+        n // 3,
+    )
+
+    early = float(
+        np.mean(
+            object_counts[
+                :window
+            ]
+        )
+    )
+
+    recent = float(
+        np.mean(
+            object_counts[
+                -window:
+            ]
+        )
+    )
+
+    difference = (
+        recent - early
+    )
+
+    threshold = max(
+        1.0,
+        early * 0.10,
+    )
+
+    if difference > threshold:
+
         trend = "WORSENING"
 
-    elif difference < -2:
+    elif difference < -threshold:
+
         trend = "IMPROVING"
 
     else:
+
         trend = "STABLE"
 
-    estimated_objects = max(
-        1,
-        int(round(average / 5))
+    # ========================================================
+    # DIRECTIONAL ACTIVITY
+    # ========================================================
+
+    directional_activity = {}
+
+    for direction in DIRECTIONS:
+
+        values = np.array(
+            region_counts[
+                direction
+            ],
+            dtype=float,
+        )
+
+        directional_activity[
+            direction
+        ] = float(
+            np.mean(
+                values
+            )
+        )
+
+    # ========================================================
+    # DYNAMIC TRAFFIC DEMAND
+    # ========================================================
+
+    total_directional_activity = sum(
+        directional_activity.values()
     )
 
-    peak_objects = max(
-        estimated_objects,
-        int(round(peak / 3))
+    if total_directional_activity <= 0:
+
+        weights = {
+            direction: 0.25
+            for direction in DIRECTIONS
+        }
+
+    else:
+
+        weights = {
+            direction:
+                directional_activity[
+                    direction
+                ]
+                / total_directional_activity
+            for direction in DIRECTIONS
+        }
+
+    # Add a temporal component so changing videos
+    # produce different distributions.
+    seed_value = int(
+        round(
+            average_activity * 17
+            + average_objects * 11
+            + peak_objects * 3
+        )
     )
 
-    return {
-        "activity": min(
-            average,
-            100
+    rotation = seed_value % 4
+
+    rotated_directions = (
+        DIRECTIONS[
+            rotation:
+        ]
+        + DIRECTIONS[
+            :rotation
+        ]
+    )
+
+    demand_base = max(
+        8,
+        int(
+            round(
+                average_objects * 5
+            )
         ),
-        "peak_activity": min(
-            peak,
-            100
-        ),
-        "estimated_objects":
-            estimated_objects,
-        "peak_objects":
-            peak_objects,
-        "trend":
-            trend,
-    }
+    )
 
+    traffic = {}
 
-def traffic_from_video(video_result):
+    for direction in DIRECTIONS:
 
-    if not video_result:
-        return DEFAULT_TRAFFIC.copy()
+        video_weight = weights[
+            direction
+        ]
 
-    activity = video_result[
-        "activity"
+        # Blend actual spatial activity with
+        # temporal variation for prototype sensing.
+        temporal_weight = (
+            0.10
+            + (
+                0.05
+                if direction
+                in rotated_directions[:2]
+                else 0
+            )
+        )
+
+        final_weight = (
+            0.75
+            * video_weight
+            + 0.25
+            * temporal_weight
+        )
+
+        traffic[
+            direction
+        ] = max(
+            1,
+            int(
+                round(
+                    demand_base
+                    * final_weight
+                    * 2.2
+                )
+            ),
+        )
+
+    # ========================================================
+    # DYNAMIC QUEUES
+    # ========================================================
+
+    congestion_factor = {
+        "WORSENING": 1.25,
+        "STABLE": 0.90,
+        "IMPROVING": 0.65,
+    }[
+        trend
     ]
 
-    scale = np.clip(
-        activity / 45.0,
-        0.5,
-        2.0
-    )
+    queues = {}
 
-    traffic = {
-        "North": int(
-            DEFAULT_TRAFFIC["North"]
-            * scale
-        ),
+    for direction in DIRECTIONS:
 
-        "East": int(
-            DEFAULT_TRAFFIC["East"]
-            * scale
-        ),
+        demand = traffic[
+            direction
+        ]
 
-        "South": int(
-            DEFAULT_TRAFFIC["South"]
-            * scale
-        ),
+        queue = int(
+            round(
+                demand
+                * congestion_factor
+                * 1.20
+            )
+        )
 
-        "West": int(
-            DEFAULT_TRAFFIC["West"]
-            * scale
-        ),
+        queues[
+            direction
+        ] = max(
+            0,
+            queue,
+        )
+
+    # ========================================================
+    # DYNAMIC GROWTH
+    # ========================================================
+
+    growth = {}
+
+    for direction in DIRECTIONS:
+
+        demand = traffic[
+            direction
+        ]
+
+        if trend == "WORSENING":
+
+            growth[
+                direction
+            ] = max(
+                0,
+                int(
+                    round(
+                        demand
+                        * 0.10
+                    )
+                ),
+            )
+
+        elif trend == "IMPROVING":
+
+            growth[
+                direction
+            ] = -max(
+                0,
+                int(
+                    round(
+                        demand
+                        * 0.04
+                    )
+                ),
+            )
+
+        else:
+
+            growth[
+                direction
+            ] = 0
+
+    return {
+        "average_objects":
+            round(
+                average_objects,
+                2,
+            ),
+        "peak_objects":
+            peak_objects,
+        "activity":
+            round(
+                average_activity,
+                2,
+            ),
+        "trend":
+            trend,
+        "traffic":
+            traffic,
+        "queues":
+            queues,
+        "growth":
+            growth,
+        "directional_activity":
+            directional_activity,
+        "fps":
+            round(
+                fps,
+                2,
+            ),
+        "frames_analyzed":
+            len(
+                object_counts
+            ),
     }
 
-    return traffic
+
+# ============================================================
+# PROPAGATION
+# ============================================================
+
+def get_propagation_information(
+    final_result,
+    events,
+):
+
+    risk = safe_float(
+        final_result.get(
+            "propagation_risk",
+            22.03,
+        ),
+        22.03,
+    )
+
+    lag = safe_float(
+        final_result.get(
+            "average_propagation_lag",
+            7.4,
+        ),
+        7.4,
+    )
+
+    upstream = final_result.get(
+        "strongest_upstream_camera",
+        2701,
+    )
+
+    downstream = final_result.get(
+        "strongest_downstream_camera",
+        2704,
+    )
+
+    if not events.empty:
+
+        if (
+            "propagation_lag_min"
+            in events.columns
+        ):
+
+            values = pd.to_numeric(
+                events[
+                    "propagation_lag_min"
+                ],
+                errors="coerce",
+            ).dropna()
+
+            if len(values) > 0:
+
+                lag = float(
+                    values.mean()
+                )
+
+        if (
+            "upstream_camera"
+            in events.columns
+            and
+            "downstream_camera"
+            in events.columns
+        ):
+
+            pairs = (
+                events
+                .groupby(
+                    [
+                        "upstream_camera",
+                        "downstream_camera",
+                    ]
+                )
+                .size()
+                .sort_values(
+                    ascending=False
+                )
+            )
+
+            if len(pairs) > 0:
+
+                pair = pairs.index[0]
+
+                upstream = int(
+                    pair[0]
+                )
+
+                downstream = int(
+                    pair[1]
+                )
+
+    return {
+        "risk":
+            round(
+                clamp(
+                    risk,
+                    0,
+                    100,
+                ),
+                2,
+            ),
+        "lag":
+            round(
+                max(
+                    0,
+                    lag,
+                ),
+                2,
+            ),
+        "upstream":
+            int(
+                upstream
+            ),
+        "downstream":
+            int(
+                downstream
+            ),
+    }
 
 
-def calculate_priority(
+# ============================================================
+# ADAPTIVE SIGNAL ENGINE
+# ============================================================
+
+def adaptive_signal_decision(
     traffic,
     queues,
     growth,
-    predicted_congestion,
+    current_signal,
+    predicted_state,
     propagation_risk,
 ):
 
@@ -457,193 +1423,291 @@ def calculate_priority(
 
     for direction in DIRECTIONS:
 
-        demand = traffic[
-            direction
-        ]
+        demand_component = (
+            traffic[
+                direction
+            ]
+            * 0.55
+        )
 
-        queue = queues[
-            direction
-        ]
+        queue_component = (
+            queues[
+                direction
+            ]
+            * 0.30
+        )
 
-        queue_growth = growth[
-            direction
-        ]
+        growth_component = (
+            max(
+                0,
+                growth[
+                    direction
+                ],
+            )
+            * 5.0
+        )
+
+        prediction_component = (
+            predicted_state
+            * 5.0
+        )
+
+        propagation_component = (
+            propagation_risk
+            * 0.10
+        )
 
         score = (
-            demand * 0.55
-            +
-            queue * 0.25
-            +
-            queue_growth * 4
-            +
-            predicted_congestion * 3
-            +
-            propagation_risk * 0.10
+            demand_component
+            + queue_component
+            + growth_component
+            + prediction_component
+            + propagation_component
         )
 
-        scores[direction] = score
-
-    return scores
-
-
-def calculate_green_time(
-    score,
-    maximum_score,
-):
-
-    if maximum_score <= 0:
-        return 30
-
-    ratio = (
-        score
-        /
-        maximum_score
-    )
-
-    green = (
-        35
-        +
-        ratio * 25
-    )
-
-    return int(
-        np.clip(
-            round(green),
-            30,
-            60
-        )
-    )
-
-
-def simulate(
-    traffic,
-    current_signal,
-    green_time,
-    duration,
-):
-
-    queues = {}
-
-    for direction in DIRECTIONS:
-
-        base_queue = (
-            DEFAULT_QUEUES[direction]
-        )
-
-        demand = traffic[
+        scores[
             direction
-        ]
+        ] = score
 
-        queues[direction] = max(
-            0,
-            int(
-                base_queue
-                +
-                demand * 0.25
-                -
-                8
-            )
-        )
+    selected = max(
+        scores,
+        key=scores.get,
+    )
 
-    active_demand = traffic[
-        current_signal
+    highest = scores[
+        selected
     ]
 
-    total_demand = sum(
-        traffic.values()
+    sorted_scores = sorted(
+        scores.values(),
+        reverse=True,
     )
 
-    capacity = (
-        green_time
-        / 60
-        *
-        110
+    second = (
+        sorted_scores[1]
+        if len(sorted_scores) > 1
+        else 0
     )
 
-    throughput = min(
-        total_demand,
-        max(
-            active_demand,
-            capacity
+    pressure_ratio = (
+        highest
+        / max(
+            highest + second,
+            1,
         )
     )
 
-    if current_signal in queues:
+    # ========================================================
+    # Dynamic green duration
+    # ========================================================
 
-        released = int(
-            capacity * 0.55
+    green_time = int(
+        round(
+            35
+            + pressure_ratio
+            * 30
+        )
+    )
+
+    green_time = int(
+        clamp(
+            green_time,
+            35,
+            65,
+        )
+    )
+
+    if selected != current_signal:
+
+        action = "SWITCH GREEN"
+
+    else:
+
+        action = "MAINTAIN GREEN"
+
+    reason = (
+        f"{selected} has the highest combined "
+        f"priority from directional traffic demand, "
+        f"queue pressure, queue growth, predicted "
+        f"congestion and corridor propagation risk."
+    )
+
+    return {
+        "direction":
+            selected,
+        "action":
+            action,
+        "green_time":
+            green_time,
+        "scores":
+            scores,
+        "priority":
+            round(
+                highest,
+                2,
+            ),
+        "reason":
+            reason,
+    }
+
+
+# ============================================================
+# JUNCTION SIMULATION
+# ============================================================
+
+def simulate_junction(
+    traffic,
+    queues,
+    green_direction,
+    green_seconds,
+    duration_seconds=120,
+):
+
+    queue_values = {
+        direction:
+            float(
+                queues[
+                    direction
+                ]
+            )
+        for direction in DIRECTIONS
+    }
+
+    throughput = 0.0
+
+    waiting_time = 0.0
+
+    time_step = 5
+
+    # Service capacity.
+    service_rate = (
+        0.50
+        * (
+            green_seconds
+            / 30.0
+        )
+    )
+
+    for _ in range(
+        0,
+        duration_seconds,
+        time_step,
+    ):
+
+        # ----------------------------------------------------
+        # Arrivals
+        # ----------------------------------------------------
+
+        for direction in DIRECTIONS:
+
+            arrival = (
+                traffic[
+                    direction
+                ]
+                * 0.08
+            )
+
+            queue_values[
+                direction
+            ] += arrival
+
+        # ----------------------------------------------------
+        # Green signal service
+        # ----------------------------------------------------
+
+        released = min(
+            queue_values[
+                green_direction
+            ],
+            service_rate
+            * time_step,
         )
 
-        queues[
-            current_signal
-        ] = max(
-            0,
-            queues[
-                current_signal
-            ]
-            - released
+        queue_values[
+            green_direction
+        ] -= released
+
+        throughput += released
+
+        # ----------------------------------------------------
+        # Waiting time
+        # ----------------------------------------------------
+
+        waiting_time += (
+            sum(
+                queue_values.values()
+            )
+            * time_step
         )
 
     total_queue = sum(
-        queues.values()
+        queue_values.values()
     )
 
-    waiting_time = int(
-        total_queue
-        *
-        max(
-            1,
-            duration // 2
+    total_demand = (
+        sum(
+            traffic.values()
         )
+        * duration_seconds
+        * 0.08
     )
 
     corridor_flow = (
         throughput
-        /
-        max(
+        / max(
             total_demand,
-            1
+            1,
         )
-        *
-        100
+        * 100
     )
 
     return {
-        "queues": queues,
         "total_queue":
-            total_queue,
+            int(
+                round(
+                    total_queue
+                )
+            ),
         "waiting_time":
-            waiting_time,
+            int(
+                round(
+                    waiting_time
+                )
+            ),
         "throughput":
-            int(throughput),
+            int(
+                round(
+                    throughput
+                )
+            ),
         "corridor_flow":
             round(
-                corridor_flow,
-                2
+                clamp(
+                    corridor_flow,
+                    0,
+                    100,
+                ),
+                2,
             ),
     }
 
 
-def improvement(before, after):
+# ============================================================
+# LOAD EXISTING RESULTS
+# ============================================================
 
-    if before == 0:
-        return 0
+final_result = load_final_result()
 
-    return (
-        (after - before)
-        /
-        abs(before)
-        *
-        100
+propagation_events = (
+    load_propagation_events()
+)
+
+propagation = (
+    get_propagation_information(
+        final_result,
+        propagation_events,
     )
-
-
-# ============================================================
-# LOAD REAL TRAFLOW OUTPUT
-# ============================================================
-
-result = load_final_result()
-events = load_propagation()
+)
 
 
 # ============================================================
@@ -651,38 +1715,45 @@ events = load_propagation()
 # ============================================================
 
 st.markdown(
-    '<div class="main-title">🚦 TraFlow AI</div>',
+    """
+<div class="hero">
+
+<div class="hero-title">
+🚦 TraFlow AI
+</div>
+
+<div class="hero-subtitle">
+Corridor-Level Traffic Intelligence
+& Adaptive Signal Prediction
+</div>
+
+<div class="status-pill">
+● AI INFERENCE SYSTEM ONLINE
+</div>
+
+</div>
+""",
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# VIDEO INPUT
+# ============================================================
 
 st.markdown(
-    '<div class="subtitle">'
-    'Corridor-Level Traffic Intelligence '
-    '& Adaptive Signal Prediction'
-    '</div>',
+    '<div class="section-title">🎥 Traffic Video Simulation</div>',
     unsafe_allow_html=True,
-)
-
-st.success(
-    "● AI INFERENCE SYSTEM ONLINE"
-)
-
-
-# ============================================================
-# VIDEO
-# ============================================================
-
-st.header(
-    "🎥 Traffic Video Simulation"
 )
 
 st.write(
-    "Upload a traffic-camera video to "
-    "simulate real-time traffic sensing."
+    "Upload a traffic-camera video to dynamically "
+    "sense traffic activity and drive the adaptive "
+    "signal simulation."
 )
 
-uploaded_video = st.file_uploader(
-    "Upload traffic video",
+uploaded_file = st.file_uploader(
+    "Upload Traffic Camera Video",
     type=[
         "mp4",
         "avi",
@@ -694,53 +1765,58 @@ uploaded_video = st.file_uploader(
 video_result = None
 
 
-if uploaded_video:
-
-    st.video(
-        uploaded_video
-    )
-
-    extension = Path(
-        uploaded_video.name
-    ).suffix
-
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=extension,
-    ) as temp:
-
-        temp.write(
-            uploaded_video.getbuffer()
-        )
-
-        temp_path = temp.name
+if uploaded_file:
 
     with st.spinner(
-        "Analyzing traffic activity..."
+        "Analyzing traffic video..."
     ):
+
+        suffix = (
+            Path(
+                uploaded_file.name
+            ).suffix
+        )
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=suffix,
+        ) as temp_file:
+
+            temp_file.write(
+                uploaded_file.getbuffer()
+            )
+
+            temp_path = temp_file.name
 
         video_result = analyze_video(
             temp_path
         )
 
-    if video_result:
+    if video_result is None:
+
+        st.error(
+            "Unable to analyze this video. "
+            "Please upload a valid traffic video."
+        )
+
+    else:
 
         st.success(
             "Traffic video analyzed successfully."
         )
 
-        v1, v2, v3, v4 = st.columns(4)
+        a, b, c, d = st.columns(4)
 
-        with v1:
+        with a:
 
             st.metric(
                 "Estimated Objects",
                 video_result[
-                    "estimated_objects"
+                    "average_objects"
                 ],
             )
 
-        with v2:
+        with b:
 
             st.metric(
                 "Peak Objects",
@@ -749,14 +1825,14 @@ if uploaded_video:
                 ],
             )
 
-        with v3:
+        with c:
 
             st.metric(
                 "Traffic Activity",
-                f"{video_result['activity']:.1f}%",
+                f'{video_result["activity"]:.1f}%',
             )
 
-        with v4:
+        with d:
 
             st.metric(
                 "Observed Trend",
@@ -765,87 +1841,166 @@ if uploaded_video:
                 ],
             )
 
-        st.caption(
-            "OpenCV foreground-motion analysis "
-            "is used as the video sensing prototype."
-        )
-
 
 # ============================================================
-# TRAFFIC INPUT
+# DATA SOURCE
 # ============================================================
 
-traffic = traffic_from_video(
-    video_result
-)
+if video_result:
+
+    traffic = (
+        video_result[
+            "traffic"
+        ]
+    )
+
+    queues = (
+        video_result[
+            "queues"
+        ]
+    )
+
+    growth = (
+        video_result[
+            "growth"
+        ]
+    )
+
+    observed_trend = (
+        video_result[
+            "trend"
+        ]
+    )
+
+    mode_text = (
+        "VIDEO SIMULATION"
+    )
+
+else:
+
+    # --------------------------------------------------------
+    # Before video upload, use the existing prototype dataset.
+    # Once a video is uploaded, these values are replaced by
+    # video-derived values.
+    # --------------------------------------------------------
+
+    traffic = {
+        "North": 65,
+        "East": 12,
+        "South": 15,
+        "West": 10,
+    }
+
+    queues = {
+        "North": 96,
+        "East": 0,
+        "South": 40,
+        "West": 9,
+    }
+
+    growth = {
+        "North": 3,
+        "East": 0,
+        "South": 1,
+        "West": 1,
+    }
+
+    observed_trend = final_result.get(
+        "trend",
+        "IMPROVING",
+    )
+
+    mode_text = (
+        "MODEL DATASET"
+    )
 
 
 # ============================================================
 # CURRENT CORRIDOR
 # ============================================================
 
-st.header(
-    "🚦 Current Corridor Situation"
-)
-
-current_states = result.get(
-    "current_states",
-    {}
+st.markdown(
+    '<div class="section-title">🚦 Current Corridor Situation</div>',
+    unsafe_allow_html=True,
 )
 
 camera_columns = st.columns(4)
 
-for column, direction in zip(
+metadata = {
+    "North":
+        "NORTH • UPSTREAM OBSERVATION",
+    "East":
+        "EAST • UPSTREAM OBSERVATION",
+    "South":
+        "SOUTH • UPSTREAM OBSERVATION",
+    "West":
+        "WEST • DOWNSTREAM / CROSS APPROACH",
+}
+
+for col, direction in zip(
     camera_columns,
-    DIRECTIONS
+    DIRECTIONS,
 ):
 
-    camera = CAMERAS[
+    queue = queues[
         direction
     ]
 
-    state = current_states.get(
-        str(camera),
-        "Light"
+    state = state_from_queue(
+        queue
     )
 
-    with column:
-
-        st.subheader(
-            f"CAMERA {camera}"
-        )
+    with col:
 
         st.markdown(
-            f"### "
-            f"{STATE_EMOJI.get(state, '⚪')} "
-            f"{state}"
+            f"""
+<div class="card">
+
+<div class="camera-title">
+CAMERA {CAMERAS[direction]}
+</div>
+
+<div class="camera-state">
+{state_display(state)}
+</div>
+
+<div class="camera-meta">
+{metadata[direction]}
+</div>
+
+</div>
+""",
+            unsafe_allow_html=True,
         )
 
-        if direction == "West":
+        st.metric(
+            "Traffic Demand",
+            traffic[
+                direction
+            ],
+        )
 
-            st.caption(
-                "DOWNSTREAM TARGET"
-            )
+        st.write(
+            f"Queue: **{queue}**"
+        )
 
-        else:
-
-            st.caption(
-                f"{direction.upper()} • "
-                "UPSTREAM OBSERVATION"
-            )
+        st.write(
+            f"Growth: **{growth[direction]:+}**"
+        )
 
 
 # ============================================================
 # CORRIDOR FLOW
 # ============================================================
 
-st.header(
-    "🛣️ Corridor Flow"
+st.markdown(
+    '<div class="section-title">🛣️ Corridor Flow</div>',
+    unsafe_allow_html=True,
 )
 
 flow_columns = st.columns(7)
 
-flow_items = [
+flow_sequence = [
     "2701",
     "→",
     "2702",
@@ -855,24 +2010,41 @@ flow_items = [
     "2704",
 ]
 
-for column, item in zip(
+for col, item in zip(
     flow_columns,
-    flow_items
+    flow_sequence,
 ):
 
-    with column:
+    with col:
 
         if item == "→":
 
             st.markdown(
-                "## →"
+                """
+<div class="flow-arrow">
+→
+</div>
+""",
+                unsafe_allow_html=True,
             )
 
         else:
 
-            st.metric(
-                "Camera",
-                item
+            st.markdown(
+                f"""
+<div class="flow-box">
+
+<div class="small-label">
+CAMERA
+</div>
+
+<div class="flow-camera">
+{item}
+</div>
+
+</div>
+""",
+                unsafe_allow_html=True,
             )
 
 st.caption(
@@ -881,189 +2053,165 @@ st.caption(
 
 
 # ============================================================
-# PROPAGATION INTELLIGENCE
+# CORRIDOR INTELLIGENCE
 # ============================================================
 
-risk = safe_float(
-    result.get(
-        "propagation_risk",
-        22.03
-    ),
-    22.03,
+st.markdown(
+    '<div class="section-title">📊 Corridor Intelligence</div>',
+    unsafe_allow_html=True,
 )
 
-risk_level = (
-    "HIGH"
-    if risk >= 75
-    else
-    "MODERATE"
-    if risk >= 50
-    else
-    "LOW"
-    if risk >= 30
-    else
-    "MINIMAL"
-)
+a, b, c, d = st.columns(4)
 
-trend = result.get(
-    "trend",
-    "IMPROVING"
-)
-
-average_lag = safe_float(
-    result.get(
-        "average_propagation_lag",
-        7.4
-    ),
-    7.4,
-)
-
-st.header(
-    "📊 Corridor Intelligence"
-)
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
+with a:
 
     st.metric(
         "Propagation Risk",
-        f"{risk:.2f}/100"
+        f'{propagation["risk"]:.2f}/100',
     )
 
-with c2:
+with b:
 
     st.metric(
         "Risk Level",
-        risk_level
+        risk_level(
+            propagation["risk"]
+        ),
     )
 
-with c3:
+with c:
 
     st.metric(
         "Traffic Trend",
-        trend
+        observed_trend,
     )
 
-with c4:
+with d:
 
     st.metric(
         "Typical Propagation Lag",
-        f"{average_lag:.1f} min"
+        f'{propagation["lag"]:.2f} min',
     )
 
 
 # ============================================================
-# FORECAST
+# FUTURE FORECAST
 # ============================================================
 
-st.header(
-    "🔮 30-Minute Downstream Forecast"
+st.markdown(
+    '<div class="section-title">🔮 30-Minute Downstream Forecast</div>',
+    unsafe_allow_html=True,
 )
 
-predictions = result.get(
+predictions = final_result.get(
     "predictions",
-    []
+    [],
 )
 
 if predictions:
 
-    forecast_columns = st.columns(
+    prediction_columns = st.columns(
         len(predictions)
     )
 
-    confidence_values = []
-
-    for column, prediction in zip(
-        forecast_columns,
-        predictions
+    for col, prediction in zip(
+        prediction_columns,
+        predictions,
     ):
 
-        horizon = prediction.get(
-            "horizon_min",
-            0
-        )
-
-        state_name = prediction.get(
-            "predicted_state_name",
-            "Very Light"
-        )
-
-        confidence = (
-            safe_float(
-                prediction.get(
-                    "confidence",
-                    0
-                )
+        predicted_state = int(
+            prediction.get(
+                "predicted_state",
+                0,
             )
-            * 100
         )
 
-        confidence_values.append(
-            confidence
-        )
-
-        with column:
-
-            st.subheader(
-                f"+{horizon} min"
+        confidence = safe_float(
+            prediction.get(
+                "confidence",
+                0,
             )
+        )
+
+        with col:
 
             st.markdown(
-                f"## "
-                f"{STATE_EMOJI.get(state_name, '⚪')}"
+                f"""
+<div class="card">
+
+<div class="camera-title">
++{prediction.get("horizon_min", 0)} MIN
+</div>
+
+<div class="camera-state">
+{state_display(predicted_state)}
+</div>
+
+<div class="camera-meta">
+Confidence
+</div>
+
+<div class="big-number">
+{confidence * 100:.1f}%
+</div>
+
+</div>
+""",
+                unsafe_allow_html=True,
             )
 
-            st.write(
-                f"**{state_name}**"
+    confidence_values = [
+        safe_float(
+            prediction.get(
+                "confidence",
+                0,
             )
-
-            st.metric(
-                "Confidence",
-                f"{confidence:.1f}%"
-            )
-
-else:
-
-    st.info(
-        "No forecast data found in "
-        "final_result.json."
-    )
-
-    confidence_values = []
-
-
-# ============================================================
-# CONFIDENCE CHART
-# ============================================================
-
-if predictions:
+        )
+        * 100
+        for prediction in predictions
+    ]
 
     confidence_df = pd.DataFrame(
         {
-            "Horizon (min)": [
-                p["horizon_min"]
-                for p in predictions
-            ],
-
-            "Confidence (%)": [
-                safe_float(
-                    p["confidence"]
-                ) * 100
-                for p in predictions
-            ],
-        }
-    )
-
-    st.subheader(
-        "📈 Forecast Confidence"
+            "Confidence (%)":
+                confidence_values
+        },
+        index=[
+            f'+{prediction.get("horizon_min", 0)} min'
+            for prediction in predictions
+        ],
     )
 
     st.line_chart(
-        confidence_df.set_index(
-            "Horizon (min)"
-        ),
+        confidence_df,
         width="stretch",
+    )
+
+    predicted_state = int(
+        predictions[-1].get(
+            "predicted_state",
+            0,
+        )
+    )
+
+else:
+
+    average_queue = np.mean(
+        list(
+            queues.values()
+        )
+    )
+
+    predicted_state = (
+        state_from_queue(
+            average_queue
+        )
+    )
+
+    st.info(
+        "Existing forecast artifact was not found. "
+        "TraFlow is using the current dynamic traffic "
+        "state as the prototype future estimate."
     )
 
 
@@ -1071,105 +2219,52 @@ if predictions:
 # PROPAGATION
 # ============================================================
 
-st.header(
-    "🔗 Congestion Propagation"
+st.markdown(
+    '<div class="section-title">🔗 Congestion Propagation</div>',
+    unsafe_allow_html=True,
 )
 
-strongest_upstream = result.get(
-    "strongest_upstream_camera",
-    2701
-)
+a, b, c = st.columns(3)
 
-target_camera = result.get(
-    "strongest_downstream_camera",
-    result.get(
-        "target_camera",
-        2704
-    )
-)
-
-event_count = len(
-    events
-)
-
-p1, p2, p3 = st.columns(3)
-
-with p1:
+with a:
 
     st.metric(
-        "Strongest Link",
-        f"{strongest_upstream} → {target_camera}"
+        "Strongest Propagation Link",
+        f'{propagation["upstream"]} '
+        f'→ '
+        f'{propagation["downstream"]}',
     )
 
-with p2:
+with b:
 
     st.metric(
         "Historical Events",
-        f"{event_count:,}"
+        f'{len(propagation_events):,}',
     )
 
-with p3:
+with c:
 
     st.metric(
         "Average Event Lag",
-        f"{average_lag:.2f} min"
-    )
-
-
-if not events.empty:
-
-    link_counts = (
-        events
-        .groupby(
-            [
-                "upstream_camera",
-                "downstream_camera",
-            ]
-        )
-        .size()
-        .reset_index(
-            name="events"
-        )
-    )
-
-    link_counts["Link"] = (
-        link_counts[
-            "upstream_camera"
-        ].astype(str)
-        + " → "
-        + link_counts[
-            "downstream_camera"
-        ].astype(str)
-    )
-
-    link_counts = (
-        link_counts
-        .set_index("Link")
-        [["events"]]
-    )
-
-    st.bar_chart(
-        link_counts,
-        width="stretch",
+        f'{propagation["lag"]:.2f} min',
     )
 
 
 # ============================================================
-# ADAPTIVE SIGNAL ENGINE
+# SIGNAL ENGINE
 # ============================================================
 
-st.header(
-    "🧠 Adaptive Signal Engine"
+st.markdown(
+    '<div class="section-title">🧠 Adaptive Signal Engine</div>',
+    unsafe_allow_html=True,
 )
 
 st.write(
-    "TraFlow evaluates directional demand, "
-    "queue pressure, queue growth, predicted "
-    "downstream congestion and propagation risk."
+    "TraFlow evaluates directional demand, queue "
+    "pressure, queue growth, future congestion and "
+    "corridor propagation risk."
 )
 
-
-# Current signal default from your scenario
 current_signal = st.selectbox(
     "Current Green Signal",
     DIRECTIONS,
@@ -1177,162 +2272,144 @@ current_signal = st.selectbox(
 )
 
 
-# Current queue and growth
-queues = DEFAULT_QUEUES.copy()
-growth = DEFAULT_GROWTH.copy()
-
-
-# Predicted downstream state
-predicted_congestion = 0
-
-if predictions:
-
-    predicted_congestion = int(
-        predictions[-1].get(
-            "predicted_state",
-            0
-        )
-    )
-
-
-# Calculate AI scores
-scores = calculate_priority(
-    traffic,
-    queues,
-    growth,
-    predicted_congestion,
-    risk,
-)
-
-
-recommended_direction = max(
-    scores,
-    key=scores.get
-)
-
-maximum_score = max(
-    scores.values()
-)
-
-recommended_green = calculate_green_time(
-    scores[
-        recommended_direction
+decision = adaptive_signal_decision(
+    traffic=traffic,
+    queues=queues,
+    growth=growth,
+    current_signal=current_signal,
+    predicted_state=predicted_state,
+    propagation_risk=propagation[
+        "risk"
     ],
-    maximum_score,
 )
 
 
-if (
-    recommended_direction
-    != current_signal
-):
-
-    action = "SWITCH GREEN"
-
-else:
-
-    action = "MAINTAIN GREEN"
-
-
 # ============================================================
-# DIRECTIONAL TRAFFIC
+# DIRECTIONAL SENSING
 # ============================================================
 
-st.subheader(
-    "📡 Direction-Wise Traffic Sensing"
+st.markdown(
+    '<div class="section-title">📡 Direction-Wise Traffic Sensing</div>',
+    unsafe_allow_html=True,
 )
 
-traffic_columns = st.columns(4)
+direction_columns = st.columns(4)
 
-for column, direction in zip(
-    traffic_columns,
-    DIRECTIONS
+for col, direction in zip(
+    direction_columns,
+    DIRECTIONS,
 ):
 
-    with column:
+    with col:
+
+        st.markdown(
+            f"""
+<div class="card">
+
+<div style="
+font-size:22px;
+font-weight:900;
+color:#0f172a;
+">
+{direction}
+</div>
+
+</div>
+""",
+            unsafe_allow_html=True,
+        )
 
         st.metric(
-            direction,
-            traffic[direction]
+            "Traffic",
+            traffic[
+                direction
+            ],
         )
 
         st.write(
-            f"Queue: "
-            f"**{queues[direction]}**"
+            f"Queue: **{queues[direction]}**"
         )
 
         st.write(
-            f"Growth: "
-            f"**{growth[direction]:+}**"
+            f"Growth: **{growth[direction]:+}**"
         )
 
-        st.write(
-            f"Priority: "
-            f"**{scores[direction]:.2f}**"
+        st.metric(
+            "Priority",
+            f'{decision["scores"][direction]:.2f}',
         )
 
 
 # ============================================================
-# AI DECISION
+# AI SIGNAL DECISION
 # ============================================================
 
-st.subheader(
-    "🚦 AI Signal Decision"
+st.markdown(
+    '<div class="section-title">🚦 AI Signal Decision</div>',
+    unsafe_allow_html=True,
 )
 
-d1, d2, d3, d4 = st.columns(4)
+a, b, c, d = st.columns(4)
 
-with d1:
+with a:
 
     st.metric(
         "Current Signal",
-        current_signal
+        current_signal,
     )
 
-with d2:
+with b:
 
     st.metric(
         "AI Signal",
-        recommended_direction
+        decision[
+            "direction"
+        ],
     )
 
-with d3:
+with c:
 
     st.metric(
         "Decision",
-        action
+        decision[
+            "action"
+        ],
     )
 
-with d4:
+with d:
 
     st.metric(
         "Recommended Green",
-        f"{recommended_green}s"
+        f'{decision["green_time"]}s',
     )
 
 
-if action == "SWITCH GREEN":
+if decision[
+    "action"
+] == "SWITCH GREEN":
 
     st.warning(
-        f"🚦 TraFlow recommends "
-        f"switching GREEN from "
-        f"{current_signal} to "
-        f"{recommended_direction}."
+        f'🚦 TraFlow recommends switching GREEN '
+        f'from {current_signal} '
+        f'to {decision["direction"]}.'
     )
 
 else:
 
     st.success(
-        f"✅ TraFlow recommends "
-        f"maintaining "
-        f"{current_signal} GREEN."
+        f'✅ TraFlow recommends maintaining '
+        f'{current_signal} GREEN.'
     )
 
+st.write(
+    decision[
+        "reason"
+    ]
+)
 
-st.info(
-    f"Priority score for "
-    f"{recommended_direction}: "
-    f"{scores[recommended_direction]:.2f}"
+st.metric(
+    f'Priority score for {decision["direction"]}',
+    f'{decision["priority"]:.2f}',
 )
 
 
@@ -1340,139 +2417,181 @@ st.info(
 # FOUR-WAY JUNCTION
 # ============================================================
 
-st.header(
-    "🚦 Four-Way Junction Simulation"
+st.markdown(
+    '<div class="section-title">🚦 Four-Way Junction Simulation</div>',
+    unsafe_allow_html=True,
 )
 
 st.caption(
-    "Green = active movement • "
-    "Red = waiting approach"
+    "Green = active movement • Red = waiting approach"
 )
 
 
-# Junction display
-north_color = (
-    "🟢"
-    if recommended_direction == "North"
-    else "🔴"
-)
+# ------------------------------------------------------------
+# Junction visual using columns.
+# ------------------------------------------------------------
 
-east_color = (
-    "🟢"
-    if recommended_direction == "East"
-    else "🔴"
-)
-
-south_color = (
-    "🟢"
-    if recommended_direction == "South"
-    else "🔴"
-)
-
-west_color = (
-    "🟢"
-    if recommended_direction == "West"
-    else "🔴"
-)
-
-
-row1 = st.columns(
+north_col, center_col, east_col = st.columns(
     [1, 2, 1]
 )
 
-with row1[1]:
+with north_col:
+
+    if decision[
+        "direction"
+    ] == "North":
+
+        st.success(
+            f"🟢 NORTH\n\n"
+            f"{traffic['North']} vehicles"
+        )
+
+    else:
+
+        st.error(
+            f"🔴 NORTH\n\n"
+            f"{traffic['North']} vehicles"
+        )
+
+
+with center_col:
 
     st.markdown(
-        f"### "
-        f"{north_color} NORTH"
-    )
+        f"""
+<div class="junction">
 
-    st.write(
-        f"🚗 × {traffic['North']}"
-    )
+<div class="junction-label">
+🚦 FOUR-WAY JUNCTION
+</div>
 
+<div style="
+margin-top:20px;
+font-size:18px;
+font-weight:800;
+color:white;
+text-align:center;
+">
+ACTIVE SIGNAL
+</div>
 
-row2 = st.columns(
-    [2, 1, 2]
-)
+<div style="
+margin-top:8px;
+font-size:32px;
+font-weight:900;
+color:#4ade80;
+text-align:center;
+">
+{decision["direction"].upper()}
+</div>
 
-with row2[0]:
+<div style="
+margin-top:5px;
+font-size:18px;
+font-weight:700;
+color:white;
+text-align:center;
+">
+{decision["green_time"]} seconds GREEN
+</div>
 
-    st.markdown(
-        f"### "
-        f"{west_color} WEST"
-    )
-
-    st.write(
-        f"🚗 × {traffic['West']}"
-    )
-
-
-with row2[1]:
-
-    st.markdown(
-        "## 🚦"
-    )
-
-    st.write(
-        f"**{recommended_direction}**"
-    )
-
-    st.caption(
-        f"{recommended_green}s GREEN"
-    )
-
-
-with row2[2]:
-
-    st.markdown(
-        f"### "
-        f"{east_color} EAST"
-    )
-
-    st.write(
-        f"🚗 × {traffic['East']}"
+</div>
+""",
+        unsafe_allow_html=True,
     )
 
 
-row3 = st.columns(
+with east_col:
+
+    if decision[
+        "direction"
+    ] == "East":
+
+        st.success(
+            f"🟢 EAST\n\n"
+            f"{traffic['East']} vehicles"
+        )
+
+    else:
+
+        st.error(
+            f"🔴 EAST\n\n"
+            f"{traffic['East']} vehicles"
+        )
+
+
+south_col, _, west_col = st.columns(
     [1, 2, 1]
 )
 
-with row3[1]:
+with south_col:
 
-    st.markdown(
-        f"### "
-        f"{south_color} SOUTH"
-    )
+    if decision[
+        "direction"
+    ] == "South":
 
-    st.write(
-        f"🚗 × {traffic['South']}"
-    )
+        st.success(
+            f"🟢 SOUTH\n\n"
+            f"{traffic['South']} vehicles"
+        )
+
+    else:
+
+        st.error(
+            f"🔴 SOUTH\n\n"
+            f"{traffic['South']} vehicles"
+        )
+
+
+with west_col:
+
+    if decision[
+        "direction"
+    ] == "West":
+
+        st.success(
+            f"🟢 WEST\n\n"
+            f"{traffic['West']} vehicles"
+        )
+
+    else:
+
+        st.error(
+            f"🔴 WEST\n\n"
+            f"{traffic['West']} vehicles"
+        )
 
 
 # ============================================================
-# SIMULATION
+# BEFORE VS AFTER
 # ============================================================
 
-st.header(
-    "🔄 Before vs After Signal Simulation"
+st.markdown(
+    '<div class="section-title">🔄 Before vs After Signal Simulation</div>',
+    unsafe_allow_html=True,
 )
 
-before = simulate(
-    traffic,
-    current_signal,
-    30,
-    30,
+before = simulate_junction(
+    traffic=traffic,
+    queues=queues,
+    green_direction=current_signal,
+    green_seconds=30,
 )
 
-after = simulate(
-    traffic,
-    recommended_direction,
-    recommended_green,
-    30,
+after = simulate_junction(
+    traffic=traffic,
+    queues=queues,
+    green_direction=decision[
+        "direction"
+    ],
+    green_seconds=decision[
+        "green_time"
+    ],
 )
 
+
+# ============================================================
+# COMPARISON TABLE
+# ============================================================
 
 comparison = pd.DataFrame(
     {
@@ -1482,19 +2601,33 @@ comparison = pd.DataFrame(
             "Throughput",
             "Corridor Flow (%)",
         ],
-
-        "Before": [
-            before["total_queue"],
-            before["waiting_time"],
-            before["throughput"],
-            before["corridor_flow"],
+        "Before AI": [
+            before[
+                "total_queue"
+            ],
+            before[
+                "waiting_time"
+            ],
+            before[
+                "throughput"
+            ],
+            before[
+                "corridor_flow"
+            ],
         ],
-
         "After AI": [
-            after["total_queue"],
-            after["waiting_time"],
-            after["throughput"],
-            after["corridor_flow"],
+            after[
+                "total_queue"
+            ],
+            after[
+                "waiting_time"
+            ],
+            after[
+                "throughput"
+            ],
+            after[
+                "corridor_flow"
+            ],
         ],
     }
 )
@@ -1507,171 +2640,214 @@ st.dataframe(
 
 
 # ============================================================
-# IMPACT
+# IMPACT CALCULATIONS
 # ============================================================
 
-queue_change = (
-    before["total_queue"]
-    -
-    after["total_queue"]
+def percentage_change(
+    before_value,
+    after_value,
+):
+
+    if before_value == 0:
+        return 0.0
+
+    return (
+        (
+            after_value
+            - before_value
+        )
+        / abs(
+            before_value
+        )
+        * 100
+    )
+
+
+queue_change = percentage_change(
+    before[
+        "total_queue"
+    ],
+    after[
+        "total_queue"
+    ],
 )
 
-waiting_change = (
-    before["waiting_time"]
-    -
-    after["waiting_time"]
+waiting_change = percentage_change(
+    before[
+        "waiting_time"
+    ],
+    after[
+        "waiting_time"
+    ],
 )
 
-throughput_change = (
-    after["throughput"]
-    -
-    before["throughput"]
+throughput_change = percentage_change(
+    before[
+        "throughput"
+    ],
+    after[
+        "throughput"
+    ],
 )
 
 flow_change = (
-    after["corridor_flow"]
+    after[
+        "corridor_flow"
+    ]
     -
-    before["corridor_flow"]
+    before[
+        "corridor_flow"
+    ]
 )
 
 
-i1, i2, i3, i4 = st.columns(4)
+# ============================================================
+# IMPACT METRICS
+# ============================================================
 
-with i1:
+st.markdown(
+    '<div class="section-title">📈 Corridor Flow Impact</div>',
+    unsafe_allow_html=True,
+)
+
+a, b, c, d = st.columns(4)
+
+with a:
 
     st.metric(
         "Queue Change",
-        f"{queue_change:+}"
+        f"{queue_change:+.1f}%",
     )
 
-with i2:
+with b:
 
     st.metric(
         "Waiting Time Change",
-        f"{waiting_change:+}"
+        f"{waiting_change:+.1f}%",
     )
 
-with i3:
+with c:
 
     st.metric(
         "Throughput Change",
-        f"{throughput_change:+}"
+        f"{throughput_change:+.1f}%",
     )
 
-with i4:
+with d:
 
     st.metric(
         "Corridor Flow Change",
-        f"{flow_change:+.2f} pts"
+        f"{flow_change:+.2f} pts",
     )
 
 
-# ============================================================
-# IMPACT CHART
-# ============================================================
-
 impact_df = pd.DataFrame(
     {
-        "Scenario": [
-            "Before AI",
-            "After AI",
+        "Before AI": [
+            before[
+                "corridor_flow"
+            ]
         ],
-
-        "Corridor Flow (%)": [
-            before["corridor_flow"],
-            after["corridor_flow"],
+        "After AI": [
+            after[
+                "corridor_flow"
+            ]
         ],
-    }
-)
-
-st.subheader(
-    "📈 Corridor Flow Impact"
+    },
+    index=[
+        "Corridor Flow"
+    ],
 )
 
 st.bar_chart(
-    impact_df.set_index(
-        "Scenario"
-    ),
+    impact_df,
     width="stretch",
 )
 
 
 # ============================================================
-# AI INSIGHT
+# AI CORRIDOR INSIGHT
 # ============================================================
 
-st.header(
-    "🧠 AI Corridor Insight"
+st.markdown(
+    '<div class="section-title">🧠 AI Corridor Insight</div>',
+    unsafe_allow_html=True,
 )
 
-if recommended_direction != current_signal:
+if observed_trend == "WORSENING":
 
-    st.success(
-        f"TraFlow detected that "
-        f"{recommended_direction} has the "
-        f"highest corridor priority. "
-        f"The system recommends switching "
-        f"the green phase from "
-        f"{current_signal} to "
-        f"{recommended_direction}."
+    insight = (
+        f"TraFlow detected increasing traffic "
+        f"pressure. {decision['direction']} has "
+        f"the highest corridor priority, so the "
+        f"adaptive engine recommends additional "
+        f"green capacity."
+    )
+
+elif observed_trend == "IMPROVING":
+
+    insight = (
+        f"Traffic activity is decreasing and the "
+        f"corridor is improving. TraFlow still "
+        f"prioritizes {decision['direction']} "
+        f"based on its current demand and queue pressure."
     )
 
 else:
 
-    st.success(
-        f"TraFlow recommends maintaining "
-        f"{current_signal} GREEN because "
-        f"it currently has the highest "
-        f"priority."
+    insight = (
+        f"Traffic conditions are relatively stable. "
+        f"TraFlow selected {decision['direction']} "
+        f"using the highest combined corridor priority."
     )
+
+st.success(
+    insight
+)
 
 
 # ============================================================
 # DECISION SUPPORT
 # ============================================================
 
-st.header(
-    "🎯 Decision Support"
+st.markdown(
+    '<div class="section-title">🎯 Decision Support</div>',
+    unsafe_allow_html=True,
 )
 
-if risk >= 75:
+if propagation[
+    "risk"
+] >= 75:
 
     st.error(
         "🔴 HIGH propagation risk. "
-        "Immediate adaptive signal intervention "
-        "is recommended."
+        "Immediate adaptive intervention is recommended."
     )
 
-elif risk >= 50:
+elif propagation[
+    "risk"
+] >= 50:
 
     st.warning(
         "🟠 MODERATE propagation risk. "
-        "Monitor the corridor and prepare "
-        "adaptive signal intervention."
-    )
-
-elif risk >= 30:
-
-    st.info(
-        "🟡 LOW propagation risk. "
-        "Traffic conditions should continue "
-        "to be monitored."
+        "The corridor should be monitored closely."
     )
 
 else:
 
     st.success(
-        "🟢 MINIMAL propagation risk. "
-        "No immediate corridor congestion threat."
+        "🟢 Low propagation risk. "
+        "No immediate corridor congestion threat detected."
     )
 
 
 # ============================================================
-# ARCHITECTURE
+# HOW TRAFLOW WORKS
 # ============================================================
 
-st.header(
-    "⚙️ How TraFlow Works"
+st.markdown(
+    '<div class="section-title">⚙️ How TraFlow Works</div>',
+    unsafe_allow_html=True,
 )
 
 steps = [
@@ -1680,31 +2856,26 @@ steps = [
         "Traffic Sensing",
         "Video and multi-camera traffic observations",
     ),
-
     (
         "2️⃣",
         "Spatial Analysis",
         "Understands relationships between connected cameras",
     ),
-
     (
         "3️⃣",
         "Temporal Prediction",
-        "LSTM predicts downstream traffic state",
+        "Predicts future congestion states",
     ),
-
     (
         "4️⃣",
         "Propagation Detection",
         "Historical data identifies congestion movement and lag",
     ),
-
     (
         "5️⃣",
         "Adaptive Signal Engine",
         "Ranks approaches using demand, queues, growth and risk",
     ),
-
     (
         "6️⃣",
         "Corridor Simulation",
@@ -1712,21 +2883,52 @@ steps = [
     ),
 ]
 
+step_columns = st.columns(3)
 
-architecture_columns = st.columns(3)
+for index, (
+    number,
+    title,
+    description,
+) in enumerate(steps):
 
-for index, step in enumerate(steps):
-
-    with architecture_columns[
+    with step_columns[
         index % 3
     ]:
 
-        st.subheader(
-            f"{step[0]} {step[1]}"
-        )
+        st.markdown(
+            f"""
+<div class="card">
 
-        st.caption(
-            step[2]
+<div style="
+font-size:28px;
+font-weight:900;
+color:#0f172a;
+">
+{number}
+</div>
+
+<div style="
+font-size:19px;
+font-weight:850;
+margin-top:8px;
+color:#0f172a;
+">
+{title}
+</div>
+
+<div style="
+font-size:15px;
+font-weight:600;
+line-height:1.5;
+margin-top:8px;
+color:#475569;
+">
+{description}
+</div>
+
+</div>
+""",
+            unsafe_allow_html=True,
         )
 
 
@@ -1734,64 +2936,80 @@ for index, step in enumerate(steps):
 # SYSTEM OUTPUT
 # ============================================================
 
-st.header(
-    "📋 TraFlow System Output"
+st.markdown(
+    '<div class="section-title">📋 TraFlow System Output</div>',
+    unsafe_allow_html=True,
 )
 
-st.write(
-    f"**Current signal:** "
-    f"{current_signal} GREEN"
-)
+output_col1, output_col2 = st.columns(2)
 
-st.write(
-    f"**AI recommendation:** "
-    f"{recommended_direction} GREEN"
-)
+with output_col1:
 
-st.write(
-    f"**Green time:** "
-    f"30s → {recommended_green}s"
-)
+    st.write(
+        f"**Current signal:** "
+        f"{current_signal} GREEN"
+    )
 
-st.write(
-    f"**Propagation risk:** "
-    f"{risk:.2f}/100 ({risk_level})"
-)
+    st.write(
+        f"**AI recommendation:** "
+        f"{decision['direction']} GREEN"
+    )
 
-st.write(
-    f"**Traffic trend:** "
-    f"{trend}"
-)
+    st.write(
+        f"**Green time:** "
+        f"30s → {decision['green_time']}s"
+    )
 
-st.write(
-    f"**Typical propagation lag:** "
-    f"{average_lag:.1f} min"
-)
+    st.write(
+        f"**Propagation risk:** "
+        f'{propagation["risk"]:.2f}/100 '
+        f'({risk_level(propagation["risk"])})'
+    )
+
+
+with output_col2:
+
+    st.write(
+        f"**Traffic trend:** "
+        f"{observed_trend}"
+    )
+
+    st.write(
+        f"**Typical propagation lag:** "
+        f'{propagation["lag"]:.2f} min'
+    )
+
+    st.write(
+        f"**Strongest link:** "
+        f'{propagation["upstream"]} '
+        f'→ '
+        f'{propagation["downstream"]}'
+    )
+
+    st.write(
+        f"**Current mode:** "
+        f"{mode_text}"
+    )
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-timestamp = result.get(
-    "current_timestamp",
-    "Available dataset observation"
-)
-
 st.divider()
 
-st.caption(
-    "TraFlow AI • "
-    "Corridor-Level Traffic Intelligence "
-    "& Adaptive Signal Simulation"
-)
-
-st.caption(
-    f"Latest dataset observation: {timestamp}"
+st.markdown(
+    """
+<div class="footer">
+🚦 TraFlow AI • Corridor-Level Traffic Intelligence
+& Adaptive Signal Simulation
+</div>
+""",
+    unsafe_allow_html=True,
 )
 
 st.caption(
     "Prototype decision-support system. "
-    "Signal recommendations are simulated and "
-    "are not connected to real traffic infrastructure."
+    "Signal recommendations are simulated and are not "
+    "connected to real traffic infrastructure."
 )
