@@ -1,0 +1,4 @@
+upstream_camera,downstream_camera,event_count,average_risk,maximum_risk,average_lag,average_state_increase,high_risk_events,link_risk_level
+2701,2704,746,48.4,60.01,7.4,1.8,0,LOW
+2702,2704,654,47.26,58.16,7.45,1.91,0,LOW
+2706,2704,496,42.6,54.98,7.92,1.71,0,LOW

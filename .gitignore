@@ -1,41 +1,35 @@
-# 忽略 reference/pictures 文件夹及其所有子目录和图片
-reference/pictures/
-
-# 常见图片扩展名（防止其它路径下误加）
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
-*.webp
-
-# 忽略临时和缓存文件
+# Python
 __pycache__/
-*.log
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Streamlit local/environment files
+.streamlit/secrets.toml
+.agents/
+
+# Uploaded videos
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# Temporary files
 *.tmp
-*.bak
-.ipynb_checkpoints/
+*.temp
+
+# Logs
+*.log
+
+# OS
 .DS_Store
 Thumbs.db
 
-# 忽略虚拟环境或配置文件
-.venv311/
-venv/
-env/
-
-# Ignore YOLO model weights
-yolov8l-seg.pt
-*.pt
-
-# ignore any model or checkpoint folder
-models/
-checkpoints/
-
-# Ignore system and temporary files
-.DS_Store
-__pycache__/
-.ipynb_checkpoints/
-
-# 忽略所有 .pth 模型权重文件
-*.pth
+# IDE
+.vscode/
+.idea/

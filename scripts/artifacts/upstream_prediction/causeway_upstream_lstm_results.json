@@ -1,0 +1,58 @@
+{
+    "model": "TrafFlow_Upstream_Only_LSTM",
+    "input_cameras": [
+        2701,
+        2702,
+        2706
+    ],
+    "target_camera": 2704,
+    "input_history_minutes": 30,
+    "prediction_horizons_minutes": [
+        5,
+        10,
+        15,
+        20,
+        25,
+        30
+    ],
+    "number_of_features": 19,
+    "training_samples": 688,
+    "validation_samples": 173,
+    "overall_accuracy": 0.11849710982658959,
+    "horizon_accuracy": {
+        "T+5": 0.0,
+        "T+10": 0.09826589595375723,
+        "T+15": 0.19653179190751446,
+        "T+20": 0.13872832369942195,
+        "T+25": 0.09248554913294797,
+        "T+30": 0.18497109826589594
+    },
+    "confusion_matrix": [
+        [
+            3,
+            0,
+            23,
+            9
+        ],
+        [
+            34,
+            1,
+            507,
+            275
+        ],
+        [
+            0,
+            0,
+            0,
+            0
+        ],
+        [
+            0,
+            0,
+            67,
+            119
+        ]
+    ],
+    "transition_samples": 30,
+    "transition_accuracy": 0.022222222222222223
+}

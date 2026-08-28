@@ -1,0 +1,51 @@
+{
+  "model": "TrafFlow Downstream LSTM",
+  "dataset": "scripts/artifacts/downstream_prediction/causeway_downstream_dataset.npz",
+  "input_shape": [
+    1058,
+    6,
+    24
+  ],
+  "output_shape": [
+    1058,
+    6
+  ],
+  "overall_accuracy": 0.6654088050314465,
+  "horizon_accuracy": [
+    0.6716981132075471,
+    0.6830188679245283,
+    0.6754716981132075,
+    0.6490566037735849,
+    0.6188679245283019,
+    0.6943396226415094
+  ],
+  "transition_samples": 43,
+  "transition_accuracy": 0.5348837209302325,
+  "confusion_matrix": [
+    [
+      2,
+      23,
+      11,
+      0
+    ],
+    [
+      2,
+      661,
+      342,
+      0
+    ],
+    [
+      0,
+      5,
+      1,
+      12
+    ],
+    [
+      1,
+      27,
+      109,
+      394
+    ]
+  ],
+  "best_model": "scripts/artifacts/downstream_prediction\\causeway_downstream_lstm.keras"
+}

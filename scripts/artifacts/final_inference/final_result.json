@@ -1,0 +1,71 @@
+{
+    "current_timestamp": "2025-10-22 13:20:00",
+    "current_states": {
+        "2701": "Light",
+        "2702": "Very Light",
+        "2706": "Very Light",
+        "2704": "Light"
+    },
+    "target_camera": 2704,
+    "predictions": [
+        {
+            "horizon_min": 5,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9691
+        },
+        {
+            "horizon_min": 10,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9458
+        },
+        {
+            "horizon_min": 15,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9722
+        },
+        {
+            "horizon_min": 20,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9113
+        },
+        {
+            "horizon_min": 25,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9069
+        },
+        {
+            "horizon_min": 30,
+            "predicted_state": 0,
+            "predicted_state_name": "Very Light",
+            "confidence": 0.9477
+        }
+    ],
+    "predicted_states": [
+        "Very Light",
+        "Very Light",
+        "Very Light",
+        "Very Light",
+        "Very Light",
+        "Very Light"
+    ],
+    "predicted_state_values": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "propagation_risk": 22.03,
+    "risk_level": "MINIMAL",
+    "trend": "IMPROVING",
+    "strongest_upstream_camera": 2701,
+    "strongest_downstream_camera": 2704,
+    "average_propagation_lag": 7.4,
+    "insight": "No significant congestion propagation risk detected."
+}

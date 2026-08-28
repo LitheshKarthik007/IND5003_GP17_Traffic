@@ -1,0 +1,14 @@
+{
+  "model": "XGBoost spatial baseline",
+  "overall_accuracy": 0.25092250922509224,
+  "accuracy_per_horizon": [
+    0.2767527675276753,
+    0.25461254612546125,
+    0.2730627306273063,
+    0.23985239852398524,
+    0.23985239852398524,
+    0.22140221402214022
+  ],
+  "transition_samples": 48,
+  "transition_accuracy": 0.17708333333333334
+}

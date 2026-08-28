@@ -1,0 +1,28 @@
+{
+  "model": "TrafFlow Spatial-Temporal LSTM",
+  "input_timesteps": 24,
+  "input_history_minutes": 120,
+  "features_per_timestep": 8,
+  "output_timesteps": 6,
+  "prediction_horizon_minutes": 30,
+  "classes": {
+    "0": "Very Light",
+    "1": "Light",
+    "2": "Moderate",
+    "3": "Severe"
+  },
+  "training_samples": 1084,
+  "validation_samples": 271,
+  "overall_accuracy": 0.2158671586715867,
+  "accuracy_per_horizon": [
+    0.07011070110701106,
+    0.1992619926199262,
+    0.2066420664206642,
+    0.05166051660516605,
+    0.5092250922509225,
+    0.25830258302583026
+  ],
+  "transition_samples": 48,
+  "transition_accuracy": 0.19444444444444442,
+  "model_path": "scripts/artifacts/spatial_training\\causeway_spatial_lstm.keras"
+}
